@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宠物起名器 AI 版</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    max-width: 620px; margin: 0 auto; padding: 30px 20px;
+    background: linear-gradient(160deg, #eef4ff, #faf6ff);
+    min-height: 100vh; color: #2b2b2b;
+  }
+  h1 { font-size: 26px; margin-bottom: 6px; }
+  .sub { color: #888; margin-bottom: 24px; font-size: 14px; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 22px;
+    box-shadow: 0 8px 30px rgba(90, 120, 200, 0.12);
+  }
+  label { display: block; margin-top: 16px; margin-bottom: 6px; color: #555; font-size: 14px; }
+  select, button { width: 100%; padding: 12px; font-size: 15px; border-radius: 10px; }
+  select { border: 1px solid #d5dbe8; background: #fbfcff; }
+  button {
+    margin-top: 22px; background: #4a7cf0; color: #fff; border: none;
+    font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s;
+  }
+  button:hover { background: #3a67d8; }
+  button:disabled { background: #a9bce8; cursor: not-allowed; }
+  #result {
+    margin-top: 22px; padding: 18px; background: #f7f9ff;
+    border-radius: 12px; line-height: 2; min-height: 60px; font-size: 16px;
+  }
+  .empty { color: #aaa; font-size: 14px; }
+  .loading { color: #4a7cf0; font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1>🐾 宠物起名器 · AI 版</h1>
+  <p class="sub">选一下你家毛孩子的类型和性格，豆包 AI 现场给你起 10 个名字。</p>
+
+  <div class="card">
+    <label>宠物类型</label>
+    <select id="type">
+      <option>猫</option>
+      <option>狗</option>
+      <option>其他</option>
+    </select>
+
+    <label>性格</label>
+    <select id="mood">
+      <option>活泼</option>
+      <option>高冷</option>
+      <option>黏人</option>
+      <option>憨厚</option>
+      <option>傲娇</option>
+    </select>
+
+    <button id="btn" onclick="generate()">生成 10 个名字</button>
+
+    <div id="result"><span class="empty">点上面按钮试试～</span></div>
+  </div>
+
+<script>
+  async function generate() {
+    const btn = document.getElementById("btn");
+    const result = document.getElementById("result");
+    const type = document.getElementById("type").value;
+    const mood = document.getElementById("mood").value;
+
+    btn.disabled = true;
+    btn.textContent = "AI 正在思考…";
+    result.innerHTML = '<span class="loading">正在请豆包起名，请稍等…</span>';
+
+    try {
+      const resp = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: type, mood: mood }),
+      });
+      const data = await resp.json();
+
+      if (data.error) {
+        result.innerHTML = '<span style="color:#e05555">出错了：' + data.error + '</span>';
+      } else {
+        result.innerHTML = "<strong>给你家" + type + "（" + mood + "）起的名字：</strong><br>" +
+          data.names.replace(/[，,、\n]/g, " · ");
+      }
+    } catch (e) {
+      result.innerHTML = '<span style="color:#e05555">请求失败：' + e.message + '</span>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "生成 10 个名字";
+    }
+  }
+</script>
+</body>
+</html>
