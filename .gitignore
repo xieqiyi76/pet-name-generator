@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .env
+favorites.db
+新建 文本文档.txt

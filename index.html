@@ -33,6 +33,9 @@
   }
   .empty { color: #aaa; font-size: 14px; }
   .loading { color: #4a7cf0; font-size: 14px; }
+  .fav-input { flex: 1; padding: 10px; border: 1px solid #d5dbe8; border-radius: 10px; font-size: 15px; }
+  .fav-row { padding: 6px 0; border-bottom: 1px dashed #eef0f7; font-size: 15px; }
+  .del-btn { width: auto; padding: 3px 12px; margin: 0; font-size: 12px; font-weight: 400; background: #fff; color: #e05555; border: 1px solid #f0c9c9; }
 </style>
 </head>
 <body>
@@ -59,6 +62,14 @@
     <button id="btn" onclick="generate()">生成 10 个名字</button>
 
     <div id="result"><span class="empty">点上面按钮试试～</span></div>
+
+    <hr style="margin-top:22px;border:none;border-top:1px dashed #dde4f3;">
+    <label>❤ 收藏夹</label>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input id="fav-name" class="fav-input" placeholder="输入想收藏的名字，如：豆豆">
+      <button id="favBtn" onclick="saveFav()" style="width:auto;padding:10px 20px;margin-top:0;">收藏</button>
+    </div>
+    <div id="favList" style="margin-top:12px;"><span class="empty">还没有收藏的名字</span></div>
   </div>
 
 <script>
@@ -93,6 +104,53 @@
       btn.textContent = "生成 10 个名字";
     }
   }
+
+  // ===== 收藏功能 =====
+  async function saveFav() {
+    const input = document.getElementById("fav-name");
+    const name = input.value.trim();
+    if (!name) { return; }
+    const resp = await fetch("/api/favorite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name }),
+    });
+    const data = await resp.json();
+    if (data.saved) {
+      renderFavs(data.all);   // 后端把全部收藏回给我们，直接显示
+      input.value = "";       // 清空输入框
+    }
+  }
+
+  function renderFavs(list) {
+    const box = document.getElementById("favList");
+    if (!list || list.length === 0) {
+      box.innerHTML = '<span class="empty">还没有收藏的名字</span>';
+      return;
+    }
+    box.innerHTML = list.map(function (item) {
+      // 每行：名字 + 删除按钮（按钮带上这一行的 id）
+      return '<div class="fav-row">' + item.name +
+        ' <button class="del-btn" onclick="deleteFav(' + item.id + ')">删除</button></div>';
+    }).join("");
+  }
+
+  async function deleteFav(id) {
+    const resp = await fetch("/api/favorite/" + id, { method: "DELETE" });
+    const data = await resp.json();
+    if (data.deleted) {
+      renderFavs(data.all);   // 删完后拿最新列表重新渲染
+    }
+  }
+
+  async function loadFavs() {
+    try {
+      const resp = await fetch("/api/favorites");
+      const data = await resp.json();
+      renderFavs(data.all);
+    } catch (e) { /* 忽略加载失败 */ }
+  }
+  loadFavs();
 </script>
 </body>
 </html>

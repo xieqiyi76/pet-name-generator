@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
+import sqlite3      # Python 自带的 SQLite 工具，不用安装
 import requests
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -12,11 +13,59 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 API_KEY = os.environ.get("ARK_API_KEY", "")
 ENDPOINT_ID = os.environ.get("ARK_ENDPOINT_ID", "ep-20261104143157-ng6d4")
 ARK_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+# ===== V0.4：收藏改用 SQLite 存（真正存得住）=====
+DB_PATH = "favorites.db"   # 整个数据库就是项目文件夹里这一个文件
+
+def init_db():
+    """启动时确保收藏表存在：没有就建一张，有就直接用"""
+    conn = sqlite3.connect(DB_PATH)          # 打开账本（没有会自动新建）
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS favorites (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        )
+    """)                                      # 建表：两列，id 自动编号
+    conn.commit()                             # 确认写入
+    conn.close()                              # 合上账本
+
+init_db()   # 程序一启动就执行一次
+
+def get_all_favorites():
+    """翻开账本，把所有收藏按存入顺序读出来（这次连 id 一起带回，方便删除）"""
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute("SELECT id, name FROM favorites ORDER BY id").fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1]} for r in rows]   # 每条长这样：{"id": 3, "name": "豆豆"}
 
 
 @app.route("/")
 def home():
     return send_from_directory(".", "index.html")
+
+@app.route('/api/favorite', methods=['POST'])
+def add_favorite():
+    data = request.get_json()
+    name = (data.get('name') or '').strip()
+    if not name:                              # 空名字不存
+        return jsonify({'saved': False, 'all': get_all_favorites()})
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("INSERT INTO favorites (name) VALUES (?)", (name,))  # 存进账本
+    conn.commit()
+    conn.close()
+    return jsonify({'saved': True, 'all': get_all_favorites()})
+
+@app.route('/api/favorites', methods=['GET'])
+def list_favorites():
+    return jsonify({'all': get_all_favorites()})
+
+# ★ 删除接口：DELETE /api/favorite/几号
+@app.route('/api/favorite/<int:fav_id>', methods=['DELETE'])
+def delete_favorite(fav_id):
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("DELETE FROM favorites WHERE id = ?", (fav_id,))  # ★ 带 WHERE！删指定那行
+    conn.commit()
+    conn.close()
+    return jsonify({'deleted': True, 'all': get_all_favorites()})
 
 
 @app.route("/api/generate", methods=["POST"])
